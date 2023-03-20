@@ -118,7 +118,6 @@ class MainWorker:
 			first_displayed = 0
 			selected = 0
 			while(True):
-				import_window.addstr(1, 1, current_path+" "*(len(current_path)-2))
 				i = 0
 				for i,file in enumerate(path_list[first_displayed:first_displayed+(win_height-7)]):
 					import_window.addstr(i+6, 1, ("[*] " if selected==first_displayed+i else "[ ] ")+file+" "*(win_width-6-len(file)))
@@ -133,7 +132,7 @@ class MainWorker:
 					if(win_height-6+first_displayed-selected < 3): first_displayed += 1
 				if(c == curses.KEY_BACKSPACE):
 					current_path = os.path.normpath(os.path.join(current_path, ".."))
-					break
+					break 
 				if(c == ord('\n')):
 					if(os.path.isdir(os.path.join(current_path, path_list[selected]))): current_path = os.path.normpath(os.path.join(current_path, path_list[selected]))
 					else: chosen_file = os.path.join(current_path, path_list[selected])
@@ -142,13 +141,56 @@ class MainWorker:
 		import_window.erase()
 		import_window.border('|', '|', '-', '-', '+', '+', '+', '+')
 		import_window.refresh()
+		import_window.addstr(1, 1, "Parsing file...")
 		#just throw object to db_importer
-		playlists = self.db_import_worker.autoparse(chosen_file)
+		playlists_data = self.db_import_worker.autoparse(chosen_file)
+		if(playlists_data):
+			import_window.addstr(2, 1, "Done! Select playlists to import:")
+			import_window.addstr(3, 1, "Use space to select, enter to continue")
+			import_window.addstr(4, 1, "-"*(win_width-2))
+			#playlists selector
+			playlists_ids = list(playlists_data.keys())
+			current_selected = []
+			first_displayed = 0
+			selected = 0
+			while(True):
+				i = 0
+				for i,pid in enumerate(playlists_ids[first_displayed:first_displayed+(win_height-6)]):
+					import_window.addstr(i+5, 1, ("[*] " if selected==first_displayed+i else "[ ] ")+("[x] " if pid in current_selected else "[ ] ")+playlists_data[pid][0]+" "*(win_width-10-len(playlists_data[pid][0])))
+				for i in range(i+1, win_height-7):
+					import_window.addstr(i+5, 1, " "*(win_width-2))
+				c = import_window.getch()
+				if(c == curses.KEY_UP and selected > 0):
+					selected -= 1
+					if(selected-first_displayed < 3 and first_displayed != 0): first_displayed -= 1
+				if(c == curses.KEY_DOWN and selected < len(path_list)-1):
+					selected += 1
+					if(win_height-5+first_displayed-selected < 3): first_displayed += 1
+				if(c == ord(" ")):
+					if(playlists_ids[selected] in current_selected): current_selected.remove(playlists_ids[selected])
+					else: current_selected.append(playlists_ids[selected])
+				if(c == ord('\n')):
+					if(os.path.isdir(os.path.join(current_path, path_list[selected]))): current_path = os.path.normpath(os.path.join(current_path, path_list[selected]))
+					else: chosen_file = os.path.join(current_path, path_list[selected])
+					break
+			#work on selected
+			import_window.erase()
+			import_window.border('|', '|', '-', '-', '+', '+', '+', '+')
+			import_window.refresh()
+			import_window.addstr(1, 1, "Importing...")
+			for i in current_selected:
+				pid = self.db_worker.add_playlist(playlists_data[i][0])
+				for track in playlists_data[i][1:]:
+					self.db_worker.add_track_to_playlist(track, pid)
+		else:
+			import_window.addstr(2, 1, "Unsupported format!")
+		import_window.refresh()
+		time.sleep(2)
 		self.playlists_window.redrawwin()
 		self.playlists_window.refresh()
 		self.tracks_window.redrawwin()
 		self.tracks_window.refresh()
-		
+		self.update_playlists_list()
 
 
 	def mainloop(self):

@@ -41,3 +41,33 @@ class DBWorker:
 		for i in c.fetchall():
 			data[i[0]] = i[1]
 		return data
+
+	def add_playlist(self, name):
+		c = self.db.cursor()
+		c.execute('INSERT INTO `playlists` (`name`) VALUES ("'+str(name)+'");')
+		self.db.commit()
+		c = self.db.cursor()
+		c.execute('SELECT `id` FROM `playlists` ORDER BY `id` DESC LIMIT 1;')
+		return int(c.fetchone()[0])
+
+	def add_track_to_playlist(self, track_id, playlist_id):
+		c = self.db.cursor()
+		c.execute('SELECT `position` FROM `playlist_map` WHERE `playlist_id`='+str(playlist_id)+' ORDER BY `position` DESC LIMIT 1;')
+		last_pos = -1
+		f = c.fetchone()
+		if(f): last_pos = int(f[0])
+		c = self.db.cursor()
+		c.execute('INSERT INTO `playlist_map` (`playlist_id`, `track_id`, `position`) VALUES ('+str(playlist_id)+', "'+str(track_id)+'", '+str(last_pos+1)+');')
+		self.db.commit()
+
+	def update_tracks_db(self, yt_worker):
+		c = self.db.cursor()
+		c.execute('SELECT `track_id` FROM `playlist_map`;')
+		c2 = self.db.cursor()
+		c2.execute('SELECT `id` FROM `tracks`;')
+		already_listed = set([i[0] for i in c2.fetchall()])
+		for i in [i[0] for i in c.fetchall()]:
+			if(i not in already_listed):
+				print(i)
+				data = yt_worker.get_info(i)
+				self.save_track_data(i, data['title'], data['album'], data['artist'], data['release_year'], data['preview'])
