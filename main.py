@@ -167,7 +167,7 @@ class MainWorker:
 
 
 def main(screen):
-	db_import_worker = DBImportWorker.DBImportWorker("vimusic.db")
+	db_import_worker = DBImportWorker.DBImportWorker()
 	db_worker = DBWorker.DBWorker()
 	yt_worker = YTWorker.YTWorker()
 	#playlists = db_import_worker.get_playlists()
