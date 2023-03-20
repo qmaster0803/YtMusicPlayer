@@ -6,10 +6,11 @@ import time
 import os
 
 class MainWorker:
-	def __init__(self, screen, yt_worker, db_worker):
+	def __init__(self, screen, yt_worker, db_worker, db_import_worker):
 		self.screen = screen
 		self.yt_worker = yt_worker
 		self.db_worker = db_worker
+		self.db_import_worker = db_import_worker
 
 		#current playing data
 		self.first_displayed_playlist = 0
@@ -55,6 +56,7 @@ class MainWorker:
 		if(self.selected_playlist == None):
 			self.selected_playlist = 0
 
+		i = 0
 		for i, playlist_id in enumerate(playlist_ids[self.first_displayed_playlist:self.first_displayed_playlist+self.global_lists_height]):
 			s = "["+("*" if (i+self.first_displayed_playlist)==self.selected_playlist else " ")+"] "+self.playlists[playlist_id]
 			self.playlists_window.addstr(1+i, 1, s+(" "*(self.playlists_win_width-2-len(s))))
@@ -101,7 +103,7 @@ class MainWorker:
 		#small file explorer here
 		current_path = os.getcwd()
 		chosen_file = None
-		while(True):
+		while(chosen_file == None):
 			path_list = os.listdir(current_path)
 			dir_list = []
 			files_list = []
@@ -115,7 +117,9 @@ class MainWorker:
 			path_list += dir_list+files_list
 			first_displayed = 0
 			selected = 0
-			while(chosen_file == None):
+			while(True):
+				import_window.addstr(1, 1, current_path+" "*(len(current_path)-2))
+				i = 0
 				for i,file in enumerate(path_list[first_displayed:first_displayed+(win_height-6)]):
 					import_window.addstr(i+6, 1, ("[*] " if selected==first_displayed+i else "[ ] ")+file+" "*(win_width-6-len(file)))
 				for i in range(i+1, win_height-7):
@@ -128,10 +132,19 @@ class MainWorker:
 					selected += 1
 					if(win_height-6+first_displayed-selected < 3): first_displayed += 1
 				if(c == ord('\n')):
-					if(os.path.isdir(path_list[selected])): current_path = os.path.join(current_path, path_list[selected])
+					if(os.path.isdir(os.path.join(current_path, path_list[selected]))): current_path = os.path.normpath(os.path.join(current_path, path_list[selected]))
 					else: chosen_file = os.path.join(current_path, path_list[selected])
 					break
-		import_window.clear()
+		#clear window and try to parse selected file
+		import_window.erase()
+		import_window.border('|', '|', '-', '-', '+', '+', '+', '+')
+		import_window.refresh()
+		#just throw object to db_importer
+		playlists = self.db_import_worker.autoparse(chosen_file)
+		self.playlists_window.redrawwin()
+		self.playlists_window.refresh()
+		self.tracks_window.redrawwin()
+		self.tracks_window.refresh()
 		
 
 
@@ -159,7 +172,7 @@ def main(screen):
 	yt_worker = YTWorker.YTWorker()
 	#playlists = db_import_worker.get_playlists()
 
-	main_worker = MainWorker(screen, yt_worker, db_worker)
+	main_worker = MainWorker(screen, yt_worker, db_worker, db_import_worker)
 	main_worker.update_player_heading()
 	main_worker.mainloop()
 	#for i in range(1000):
