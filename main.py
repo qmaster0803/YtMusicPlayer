@@ -120,7 +120,7 @@ class MainWorker:
 			while(True):
 				import_window.addstr(1, 1, current_path+" "*(len(current_path)-2))
 				i = 0
-				for i,file in enumerate(path_list[first_displayed:first_displayed+(win_height-6)]):
+				for i,file in enumerate(path_list[first_displayed:first_displayed+(win_height-7)]):
 					import_window.addstr(i+6, 1, ("[*] " if selected==first_displayed+i else "[ ] ")+file+" "*(win_width-6-len(file)))
 				for i in range(i+1, win_height-7):
 					import_window.addstr(i+6, 1, " "*(win_width-2))
@@ -131,6 +131,9 @@ class MainWorker:
 				if(c == curses.KEY_DOWN and selected < len(path_list)-1):
 					selected += 1
 					if(win_height-6+first_displayed-selected < 3): first_displayed += 1
+				if(c == curses.KEY_BACKSPACE):
+					current_path = os.path.normpath(os.path.join(current_path, ".."))
+					break
 				if(c == ord('\n')):
 					if(os.path.isdir(os.path.join(current_path, path_list[selected]))): current_path = os.path.normpath(os.path.join(current_path, path_list[selected]))
 					else: chosen_file = os.path.join(current_path, path_list[selected])
