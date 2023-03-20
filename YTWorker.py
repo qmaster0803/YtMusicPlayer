@@ -6,13 +6,16 @@ class YTWorker:
 		self.client = yt_dlp.YoutubeDL(options)
 	
 	def get_info(self, video_id):
-		data = self.client.extract_info(video_id, download=False)
+		try:
+			data = self.client.extract_info(video_id, download=False)
+		except yt_dlp.utils.DownloadError:
+			return None
 		output = {}
 		output["title"] = data["title"]
-		output["album"] = data["album"]
-		output["artist"] = data["artist"]
+		output["album"] = (data["album"] if ("album" in data and data['album']!=None) else "")
+		output["artist"] = (data["artist"] if ("artist" in data and data['artist']!=None) else data['channel'])
 		output["preview"] = data["thumbnail"]
-		output["release_year"] = data["release_year"]
+		output["release_year"] = (data["release_year"] if ("release_year" in data and data['release_date']!=None) else data["upload_date"][:4])
 		return output
 
 	def get_audio(self, video_id):

@@ -60,14 +60,21 @@ class DBWorker:
 		c.execute('INSERT INTO `playlist_map` (`playlist_id`, `track_id`, `position`) VALUES ('+str(playlist_id)+', "'+str(track_id)+'", '+str(last_pos+1)+');')
 		self.db.commit()
 
-	def update_tracks_db(self, yt_worker):
+	def get_tracks_db_updates(self):
 		c = self.db.cursor()
 		c.execute('SELECT `track_id` FROM `playlist_map`;')
 		c2 = self.db.cursor()
 		c2.execute('SELECT `id` FROM `tracks`;')
 		already_listed = set([i[0] for i in c2.fetchall()])
+		ret = []
 		for i in [i[0] for i in c.fetchall()]:
 			if(i not in already_listed):
-				print(i)
-				data = yt_worker.get_info(i)
-				self.save_track_data(i, data['title'], data['album'], data['artist'], data['release_year'], data['preview'])
+				ret.append(i)
+		return ret
+
+	def purge_broken(self, track_id):
+		c = self.db.cursor()
+		c.execute('DELETE FROM `tracks` WHERE `id`="'+str(track_id)+'";')
+		c = self.db.cursor()
+		c.execute('DELETE FROM `playlist_map` WHERE `track_id`="'+str(track_id)+'";')
+		self.db.commit()

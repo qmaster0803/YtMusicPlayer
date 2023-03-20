@@ -192,6 +192,50 @@ class MainWorker:
 		self.tracks_window.refresh()
 		self.update_playlists_list()
 
+	def update_tracks_db(self):
+		update_list = self.db_worker.get_tracks_db_updates()
+
+		win_height = int(curses.LINES*0.5)
+		win_width  = int(curses.COLS*0.5)
+		update_window = curses.newwin(win_height, win_width, int((curses.LINES-win_height)/2), int((curses.COLS-win_width)/2))
+		update_window.keypad(True)
+		update_window.border('|', '|', '-', '-', '+', '+', '+', '+')
+		update_window.addstr(1, 1, "Need to get info about"+str(len(update_list))+"track(s)")
+		s = "Progress: "+str(0)+"/"+str(len(update_list))+"; Errors: "+str(0)
+		update_window.addstr(2, 1, s+(" "*(win_width-2-len(s))))
+
+		#draw progressbar
+		s = "-"*(win_width-2)
+		update_window.addstr(3, 1, s)
+		update_window.refresh()
+
+		#start work
+		success = 0
+		error = 0
+		for track in update_list:
+			data = self.yt_worker.get_info(track)
+			if(data):
+				success += 1
+				with open("a", "w") as file:
+					file.write(str([track, data['title'], data['album'], data['artist'], data['release_year'], data['preview']]))
+				self.db_worker.save_track_data(track, data['title'], data['album'], data['artist'], data['release_year'], data['preview'])
+			else:
+				self.db_worker.purge_broken(track)
+				error += 1
+			#redraw text and progressbar
+			s = "Progress: "+str(success)+"/"+str(len(update_list))+"; Errors: "+str(error)
+			update_window.addstr(2, 1, s+(" "*(win_width-2-len(s))))
+			l = ((win_width-2) / float(len(update_list))) * (success+error)
+			s = "="*round(l)+"-"*(win_width-2-round(l))
+			update_window.addstr(3, 1, s)
+			update_window.refresh()
+		time.sleep(2)
+		self.playlists_window.redrawwin()
+		self.playlists_window.refresh()
+		self.tracks_window.redrawwin()
+		self.tracks_window.refresh()
+		self.update_playlists_list()
+
 
 	def mainloop(self):
 		while(True):
@@ -207,6 +251,8 @@ class MainWorker:
 
 			if(c == ord('i')): #import
 				self.do_import()
+			if(c == ord('u')):
+				self.update_tracks_db()
 			if(c == ord('q')):
 				break
 
