@@ -7,6 +7,7 @@ import os
 
 class MainWorker:
 	def __init__(self, screen, yt_worker, db_worker, db_import_worker):
+		self.shorten_l = 25
 		self.screen = screen
 		self.yt_worker = yt_worker
 		self.db_worker = db_worker
@@ -14,7 +15,11 @@ class MainWorker:
 
 		#current playing data
 		self.first_displayed_playlist = 0
+		self.first_displayed_track = 0
+		self.playlists = None
+		self.playlists_ids = None
 		self.selected_playlist = None
+		self.selected_track = 0
 		self.playlists_count = 0
 
 		self.playback_id = 'pTYIf2pkxzQ'
@@ -47,22 +52,45 @@ class MainWorker:
 		self.update_playlists_list()
 		curses.doupdate()
 
+	def update_tracks_list(self):
+		tracks = self.db_worker.get_tracks_from_playlist(self.playlists_ids[self.selected_playlist])
+		with open("a", "w") as file:
+			file.write(str(self.playlists_ids))
+			file.write("\n")
+			file.write(str(self.playlists_ids[self.selected_playlist]))
+		i = 0
+		for i, track_id in enumerate(tracks[self.first_displayed_track:self.first_displayed_track+self.global_lists_height]):
+			data = self.db_worker.get_track_data(track_id)
+			if(data):
+				self.db_worker.shorten(data, self.shorten_l)
+				s = ("[*] " if (i+self.first_displayed_track)==self.selected_track else "[ ] ")+("[x] " if track_id==self.playback_id else "[ ] ")+data['title']+" - "+data['album']
+				s1 = "["+data['artist']+']'+" "*(self.shorten_l+3-len(data['artist']))+'['+str(data['release_year'])+']'
+			else:
+				s = ("[*] " if (i+self.first_displayed_track)==self.selected_track else "[ ] ")+"[ ] NO DATA"
+				s1 = "[NO DATA][NO DATA]"
+			self.tracks_window.addstr(1+i, 1, s+(" "*(self.tracks_win_width-2-len(s)-len(s1)))+s1)
+
+		for i in range(i+1, self.global_lists_height):
+			self.tracks_window.addstr(1+i, 1, " "*(self.tracks_win_width-2))
+		self.tracks_window.refresh()
+
 
 	def update_playlists_list(self):
 		self.playlists = self.db_worker.get_playlists()
-		playlist_ids = sorted(list(self.playlists.keys()))
-		self.playlists_count = len(playlist_ids)
+		self.playlists_ids = sorted(list(self.playlists.keys()))
+		self.playlists_count = len(self.playlists_ids)
 
-		if(self.selected_playlist == None):
+		if(self.selected_playlist == None and self.playlists_ids):
 			self.selected_playlist = 0
 
 		i = 0
-		for i, playlist_id in enumerate(playlist_ids[self.first_displayed_playlist:self.first_displayed_playlist+self.global_lists_height]):
+		for i, playlist_id in enumerate(self.playlists_ids[self.first_displayed_playlist:self.first_displayed_playlist+self.global_lists_height]):
 			s = "["+("*" if (i+self.first_displayed_playlist)==self.selected_playlist else " ")+"] "+self.playlists[playlist_id]
 			self.playlists_window.addstr(1+i, 1, s+(" "*(self.playlists_win_width-2-len(s))))
 
 		for i in range(i+1, self.global_lists_height):
 			self.playlists_window.addstr(1+i, 1, " "*(self.playlists_win_width-2))
+		if(self.selected_playlist != None): self.update_tracks_list()
 		self.playlists_window.refresh()
 
 
@@ -185,7 +213,7 @@ class MainWorker:
 		else:
 			import_window.addstr(2, 1, "Unsupported format!")
 		import_window.refresh()
-		time.sleep(2)
+		time.sleep(1)
 		self.playlists_window.redrawwin()
 		self.playlists_window.refresh()
 		self.tracks_window.redrawwin()
@@ -200,7 +228,7 @@ class MainWorker:
 		update_window = curses.newwin(win_height, win_width, int((curses.LINES-win_height)/2), int((curses.COLS-win_width)/2))
 		update_window.keypad(True)
 		update_window.border('|', '|', '-', '-', '+', '+', '+', '+')
-		update_window.addstr(1, 1, "Need to get info about"+str(len(update_list))+"track(s)")
+		update_window.addstr(1, 1, "Need to get info about "+str(len(update_list))+" track(s)")
 		s = "Progress: "+str(0)+"/"+str(len(update_list))+"; Errors: "+str(0)
 		update_window.addstr(2, 1, s+(" "*(win_width-2-len(s))))
 
@@ -216,8 +244,6 @@ class MainWorker:
 			data = self.yt_worker.get_info(track)
 			if(data):
 				success += 1
-				with open("a", "w") as file:
-					file.write(str([track, data['title'], data['album'], data['artist'], data['release_year'], data['preview']]))
 				self.db_worker.save_track_data(track, data['title'], data['album'], data['artist'], data['release_year'], data['preview'])
 			else:
 				self.db_worker.purge_broken(track)
@@ -229,7 +255,7 @@ class MainWorker:
 			s = "="*round(l)+"-"*(win_width-2-round(l))
 			update_window.addstr(3, 1, s)
 			update_window.refresh()
-		time.sleep(2)
+		time.sleep(1)
 		self.playlists_window.redrawwin()
 		self.playlists_window.refresh()
 		self.tracks_window.redrawwin()

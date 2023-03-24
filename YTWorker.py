@@ -1,8 +1,17 @@
 import yt_dlp
 
+#used to suppress any output
+class supLogger:
+    def error(msg):
+        pass
+    def warning(msg):
+        pass
+    def debug(msg):
+    	pass
+
 class YTWorker:
 	def __init__(self):
-		options = {'format': 'm4a/bestaudio/best', 'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3'}], 'outtmpl': '%(id)s.mp3', 'progress_hooks': [self.progress_hook], 'quiet': True, 'noprogress': True}
+		options = {'format': 'm4a/bestaudio/best', 'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3'}], 'outtmpl': '%(id)s.mp3', 'progress_hooks': [self.progress_hook], 'quiet': True, 'logger': supLogger, 'noprogress': True}
 		self.client = yt_dlp.YoutubeDL(options)
 	
 	def get_info(self, video_id):

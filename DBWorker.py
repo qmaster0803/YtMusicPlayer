@@ -78,3 +78,13 @@ class DBWorker:
 		c = self.db.cursor()
 		c.execute('DELETE FROM `playlist_map` WHERE `track_id`="'+str(track_id)+'";')
 		self.db.commit()
+
+	def get_tracks_from_playlist(self, playlist_id):
+		c = self.db.cursor()
+		c.execute('SELECT `track_id` FROM `playlist_map` WHERE `playlist_id`='+str(playlist_id)+';')
+		return [i[0] for i in c.fetchall()]
+
+	def shorten(self, data, shorten_l):
+		if(len(data['album']) > shorten_l): data['album'] = data['album'][:shorten_l]+"..."
+		if(len(data['artist']) > shorten_l): data['artist'] = data['artist'][:shorten_l]+"..."
+		return data
