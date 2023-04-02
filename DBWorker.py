@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import time
 
 class DBWorker:
 	def __init__(self):
@@ -11,8 +12,9 @@ class DBWorker:
 	def init_empty_db(self):
 		c = self.db.cursor()
 		c.execute('CREATE TABLE "tracks" ("id" TEXT UNIQUE, "name" TEXT, "album" TEXT, "artist" TEXT, "year" INTEGER, "preview" TEXT);')
-		c.execute('CREATE TABLE "playlists" ("id" INTEGER UNIQUE, "name" INTEGER, PRIMARY KEY("id" AUTOINCREMENT));');
+		c.execute('CREATE TABLE "playlists" ("id" INTEGER UNIQUE, "name" INTEGER, PRIMARY KEY("id" AUTOINCREMENT));')
 		c.execute('CREATE TABLE "playlist_map" ("playlist_id" INTEGER, "track_id" INTEGER, "position" INTEGER);')
+		c.execute('CREATE TABLE "cache" ("id" TEXT UNIQUE, "last_used_timestamp" INTEGER);')
 		self.db.commit()
 
 	def save_track_data(self, track_id, name, album, artist, year, preview):
@@ -84,7 +86,24 @@ class DBWorker:
 		c.execute('SELECT `track_id` FROM `playlist_map` WHERE `playlist_id`='+str(playlist_id)+';')
 		return [i[0] for i in c.fetchall()]
 
-	def shorten(self, data, shorten_l):
-		if(len(data['album']) > shorten_l): data['album'] = data['album'][:shorten_l]+"..."
-		if(len(data['artist']) > shorten_l): data['artist'] = data['artist'][:shorten_l]+"..."
-		return data
+	def is_track_in_cache(self, video_id):
+		c = self.db.cursor()
+		c.execute('SELECT `id` FROM `cache` WHERE `id`=="'+str(video_id)+'";')
+		return len(c.fetchall()) != 0
+
+	def add_track_to_cache(self, video_id):
+		c = self.db.cursor()
+		c.execute('INSERT INTO `cache` (`id`, `last_used_timestamp`) VALUES ("'+str(video_id)+'", '+str(int(time.time()))+');')
+		self.db.commit()
+
+	def update_cache_used_time(self, video_id):
+		c = self.db.cursor()
+		c.execute('UPDATE `cache` SET `last_used_timestamp`='+str(int(time.time()))+' WHERE `id`="'+str(video_id)+'";')
+		self.db.commit()
+
+	def shorten(self, string, shorten_l):
+		if(len(string) > shorten_l): string = string[:shorten_l-3]+"..."
+		return string
+
+	def close(self):
+		self.db.close()
